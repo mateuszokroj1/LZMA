@@ -1,110 +1,123 @@
-// LzOutWindow.cs
+using System.IO;
 
-namespace SevenZip.Compression.LZ
+namespace Lzma.Windows
 {
-	public class OutWindow
+	internal class OutWindow
 	{
-		byte[] _buffer = null;
-		uint _pos;
-		uint _windowSize = 0;
-		uint _streamPos;
-		System.IO.Stream _stream;
+        #region Fields
 
-		public uint TrainSize = 0;
+        private byte[] buffer = null;
+		private uint position;
+		private uint windowSize = 0;
+		private uint streamPosition;
+		private Stream stream;
 
-		public void Create(uint windowSize)
+        #endregion
+
+        #region Properties
+
+        public uint TrainSize { get; set; }
+
+        #endregion
+
+        public void Create(uint windowSize)
 		{
-			if (_windowSize != windowSize)
-			{
-				// System.GC.Collect();
-				_buffer = new byte[windowSize];
-			}
-			_windowSize = windowSize;
-			_pos = 0;
-			_streamPos = 0;
+			if (this.windowSize != windowSize)
+				this.buffer = new byte[windowSize];
+
+			this.windowSize = windowSize;
+			this.position = 0;
+			this.streamPosition = 0;
 		}
 
-		public void Init(System.IO.Stream stream, bool solid)
+		public void Init(Stream stream, bool solid)
 		{
-			ReleaseStream();
-			_stream = stream;
+			this.stream = stream;
+
 			if (!solid)
 			{
-				_streamPos = 0;
-				_pos = 0;
+				this.streamPosition = 0;
+				this.position = 0;
 				TrainSize = 0;
 			}
 		}
 	
-		public bool Train(System.IO.Stream stream)
+		public bool Train(Stream stream)
 		{
 			long len = stream.Length;
-			uint size = (len < _windowSize) ? (uint)len : _windowSize;
+			uint size = (len < this.windowSize) ? (uint)len : this.windowSize;
 			TrainSize = size;
 			stream.Position = len - size;
-			_streamPos = _pos = 0;
+			this.streamPosition = this.position = 0;
+
 			while (size > 0)
 			{
-				uint curSize = _windowSize - _pos;
+				uint curSize = this.windowSize - this.position;
 				if (size < curSize)
 					curSize = size;
-				int numReadBytes = stream.Read(_buffer, (int)_pos, (int)curSize);
+				int numReadBytes = stream.Read(this.buffer, (int)this.position, (int)curSize);
 				if (numReadBytes == 0)
 					return false;
 				size -= (uint)numReadBytes;
-				_pos += (uint)numReadBytes;
-				_streamPos += (uint)numReadBytes;
-				if (_pos == _windowSize)
-					_streamPos = _pos = 0;
+				this.position += (uint)numReadBytes;
+				this.streamPosition += (uint)numReadBytes;
+				if (this.position == this.windowSize)
+					this.streamPosition = this.position = 0;
 			}
-			return true;
-		}
 
-		public void ReleaseStream()
-		{
-			Flush();
-			_stream = null;
+			return true;
 		}
 
 		public void Flush()
 		{
-			uint size = _pos - _streamPos;
+			uint size = this.position - this.streamPosition;
+
 			if (size == 0)
 				return;
-			_stream.Write(_buffer, (int)_streamPos, (int)size);
-			if (_pos >= _windowSize)
-				_pos = 0;
-			_streamPos = _pos;
+
+			this.stream.Write(this.buffer, (int)this.streamPosition, (int)size);
+
+			if (this.position >= this.windowSize)
+				this.position = 0;
+
+			this.streamPosition = this.position;
 		}
 
-		public void CopyBlock(uint distance, uint len)
+		public void CopyBlock(uint distance, uint length)
 		{
-			uint pos = _pos - distance - 1;
-			if (pos >= _windowSize)
-				pos += _windowSize;
-			for (; len > 0; len--)
+			uint localPosition = this.position - distance - 1;
+
+			if (localPosition >= this.windowSize)
+				localPosition += this.windowSize;
+
+			for (; length > 0; length--)
 			{
-				if (pos >= _windowSize)
-					pos = 0;
-				_buffer[_pos++] = _buffer[pos++];
-				if (_pos >= _windowSize)
+				if (localPosition >= this.windowSize)
+					localPosition = 0;
+
+				this.buffer[this.position++] = this.buffer[localPosition++];
+
+				if (this.position >= this.windowSize)
 					Flush();
 			}
 		}
 
 		public void PutByte(byte b)
 		{
-			_buffer[_pos++] = b;
-			if (_pos >= _windowSize)
+			this.buffer[this.position++] = b;
+
+			if (this.position >= this.windowSize)
 				Flush();
 		}
 
 		public byte GetByte(uint distance)
 		{
-			uint pos = _pos - distance - 1;
-			if (pos >= _windowSize)
-				pos += _windowSize;
-			return _buffer[pos];
+			uint localPosition = this.position - distance - 1;
+
+			if (localPosition >= this.windowSize)
+				localPosition += this.windowSize;
+
+			return this.buffer[localPosition];
 		}
 	}
 }
