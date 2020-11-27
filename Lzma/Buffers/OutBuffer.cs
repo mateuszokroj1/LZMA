@@ -1,47 +1,40 @@
-// OutBuffer.cs
+using System.IO;
 
-namespace SevenZip.Buffer
+namespace Lzma.Buffers
 {
-	public class OutBuffer
+	internal class OutBuffer : Buffer, IOutBuffer
 	{
-		byte[] m_Buffer;
-		uint m_Pos;
-		uint m_BufferSize;
-		System.IO.Stream m_Stream;
-		ulong m_ProcessedSize;
+        #region Constructor
 
-		public OutBuffer(uint bufferSize)
+        public OutBuffer(uint bufferSize) : base(bufferSize) { }
+
+        #endregion
+
+        #region Methods
+
+        public void Init()
 		{
-			m_Buffer = new byte[bufferSize];
-			m_BufferSize = bufferSize;
-		}
-
-		public void SetStream(System.IO.Stream stream) { m_Stream = stream; }
-		public void FlushStream() { m_Stream.Flush(); }
-		public void CloseStream() { m_Stream.Close(); }
-		public void ReleaseStream() { m_Stream = null; }
-
-		public void Init()
-		{
-			m_ProcessedSize = 0;
-			m_Pos = 0;
+			this.processedSize = 0;
+			this.position = 0;
 		}
 
 		public void WriteByte(byte b)
 		{
-			m_Buffer[m_Pos++] = b;
-			if (m_Pos >= m_BufferSize)
+			this.buffer[this.position++] = b;
+
+			if (this.position >= Length)
 				FlushData();
 		}
 
 		public void FlushData()
 		{
-			if (m_Pos == 0)
+			if (position == 0)
 				return;
-			m_Stream.Write(m_Buffer, 0, (int)m_Pos);
-			m_Pos = 0;
+
+			Stream.Write(this.buffer, 0, (int)this.position);
+			this.position = 0;
 		}
 
-		public ulong GetProcessedSize() { return m_ProcessedSize + m_Pos; }
-	}
+        #endregion
+    }
 }

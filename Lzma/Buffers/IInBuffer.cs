@@ -1,18 +1,9 @@
-﻿using System;
-using System.IO;
+﻿using System.IO;
 
 namespace Lzma.Buffers
 {
-    internal interface IInBuffer : IDisposable
+    internal interface IInBuffer : IBuffer
     {
-        #region Properties
-
-        uint Length { get; }
-
-        ulong ProcessedSize { get; }
-
-        #endregion
-
         #region Methods
 
         void Init(Stream stream);
@@ -20,8 +11,6 @@ namespace Lzma.Buffers
         bool ReadBlock();
 
         bool TryReadBlock();
-
-        void ReleaseStream();
 
         bool TryReadByte(out byte b);
 

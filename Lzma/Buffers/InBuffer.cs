@@ -1,41 +1,25 @@
-
 using System.IO;
 
 namespace Lzma.Buffers
 {
-	internal class InBuffer : IInBuffer
+	internal class InBuffer : Buffer, IInBuffer
 	{
         #region Constructor
 
-        public InBuffer(uint bufferSize)
-        {
-            buffer = new byte[bufferSize];
-        }
+        public InBuffer(uint bufferSize) : base(bufferSize) { }
 
         #endregion
 
         #region Fields
 
-        private readonly byte[] buffer;
-        private uint position;
         private uint limit;
-        private Stream stream;
 		private bool streamWasExhausted;
-        private ulong processedSize;
-
-        #endregion;
-
-        #region Properties
-
-        public uint Length => (uint)this.buffer.Length;
-
-        public ulong ProcessedSize => this.processedSize + this.position;
 
         #endregion
 
         public void Init(Stream stream)
 		{
-			this.stream = stream;
+			Stream = stream;
 			this.processedSize = 0;
 			this.limit = 0;
 			this.position = 0;
@@ -48,7 +32,7 @@ namespace Lzma.Buffers
 				return false;
 
 			this.processedSize += this.position;
-			uint aNumProcessedBytes = (uint)this.stream.Read(this.buffer, 0, (int)Length);
+			uint aNumProcessedBytes = (uint)Stream.Read(this.buffer, 0, (int)Length);
 			this.position = 0;
 			this.limit = aNumProcessedBytes;
 			this.streamWasExhausted = aNumProcessedBytes == 0;
@@ -56,8 +40,6 @@ namespace Lzma.Buffers
 		}
 
         public bool TryReadBlock() => this.position < this.limit && ReadBlock();
-
-        public void ReleaseStream() => this.stream = null;
 
         public bool TryReadByte(out byte b)
 		{
@@ -78,10 +60,5 @@ namespace Lzma.Buffers
 
 			return this.buffer[this.position++];
 		}
-
-        public void Dispose()
-        {
-            ReleaseStream();
-        }
 	}
 }
