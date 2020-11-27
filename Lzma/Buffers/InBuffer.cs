@@ -1,0 +1,87 @@
+
+using System.IO;
+
+namespace Lzma.Buffers
+{
+	internal class InBuffer : IInBuffer
+	{
+        #region Constructor
+
+        public InBuffer(uint bufferSize)
+        {
+            buffer = new byte[bufferSize];
+        }
+
+        #endregion
+
+        #region Fields
+
+        private readonly byte[] buffer;
+        private uint position;
+        private uint limit;
+        private Stream stream;
+		private bool streamWasExhausted;
+        private ulong processedSize;
+
+        #endregion;
+
+        #region Properties
+
+        public uint Length => (uint)this.buffer.Length;
+
+        public ulong ProcessedSize => this.processedSize + this.position;
+
+        #endregion
+
+        public void Init(Stream stream)
+		{
+			this.stream = stream;
+			this.processedSize = 0;
+			this.limit = 0;
+			this.position = 0;
+			this.streamWasExhausted = false;
+		}
+
+		public bool ReadBlock()
+		{
+			if (this.streamWasExhausted)
+				return false;
+
+			this.processedSize += this.position;
+			uint aNumProcessedBytes = (uint)this.stream.Read(this.buffer, 0, (int)Length);
+			this.position = 0;
+			this.limit = aNumProcessedBytes;
+			this.streamWasExhausted = aNumProcessedBytes == 0;
+			return !this.streamWasExhausted;
+		}
+
+        public bool TryReadBlock() => this.position < this.limit && ReadBlock();
+
+        public void ReleaseStream() => this.stream = null;
+
+        public bool TryReadByte(out byte b)
+		{
+            if (!TryReadBlock())
+            {
+                b = 0;
+                return false;
+            }
+
+			b = this.buffer[this.position++];
+			return true;
+		}
+
+		public byte ReadByte()
+		{
+			if (!TryReadBlock())
+					return 0xFF; // TODO: replace with throw
+
+			return this.buffer[this.position++];
+		}
+
+        public void Dispose()
+        {
+            ReleaseStream();
+        }
+	}
+}
