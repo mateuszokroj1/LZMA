@@ -1,33 +1,31 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.IO;
 
 namespace Lzma.Coders
 {
-    class Encoder
+    internal class Encoder
     {
-        public const uint kTopValue = (1 << 24);
+        #region Fields
 
-        System.IO.Stream Stream;
+        public const uint kTopValue = 1 << 24;
 
-        public UInt64 Low;
-        public uint Range;
-        uint _cacheSize;
-        byte _cache;
+        private uint _cacheSize;
+        private byte _cache;
 
-        long StartPosition;
+        #endregion
 
-        public void SetStream(System.IO.Stream stream)
-        {
-            Stream = stream;
-        }
+        #region Properties
 
-        public void ReleaseStream()
-        {
-            Stream = null;
-        }
+        public Stream Stream { get; set; }
+
+        public ulong Low { get; set; }
+
+        public uint Range { get; set; }
+
+        public long StartPosition { get; set; }
+
+        public long ProcessedSize => _cacheSize + Stream.Position - StartPosition + 4;
+
+        #endregion
 
         public void Init()
         {
@@ -45,20 +43,11 @@ namespace Lzma.Coders
                 ShiftLow();
         }
 
-        public void FlushStream()
-        {
-            Stream.Flush();
-        }
-
-        public void CloseStream()
-        {
-            Stream.Close();
-        }
-
         public void Encode(uint start, uint size, uint total)
         {
             Low += start * (Range /= total);
             Range *= size;
+
             while (Range < kTopValue)
             {
                 Range <<= 8;
@@ -71,14 +60,17 @@ namespace Lzma.Coders
             if ((uint)Low < (uint)0xFF000000 || (uint)(Low >> 32) == 1)
             {
                 byte temp = _cache;
+
                 do
                 {
                     Stream.WriteByte((byte)(temp + (Low >> 32)));
                     temp = 0xFF;
                 }
                 while (--_cacheSize != 0);
+
                 _cache = (byte)(((uint)Low) >> 24);
             }
+
             _cacheSize++;
             Low = ((uint)Low) << 8;
         }
@@ -88,8 +80,10 @@ namespace Lzma.Coders
             for (int i = numTotalBits - 1; i >= 0; i--)
             {
                 Range >>= 1;
+
                 if (((v >> i) & 1) == 1)
                     Low += Range;
+
                 if (Range < kTopValue)
                 {
                     Range <<= 8;
@@ -101,6 +95,7 @@ namespace Lzma.Coders
         public void EncodeBit(uint size0, int numTotalBits, uint symbol)
         {
             uint newBound = (Range >> numTotalBits) * size0;
+
             if (symbol == 0)
                 Range = newBound;
             else
@@ -108,18 +103,12 @@ namespace Lzma.Coders
                 Low += newBound;
                 Range -= newBound;
             }
+
             while (Range < kTopValue)
             {
                 Range <<= 8;
                 ShiftLow();
             }
-        }
-
-        public long GetProcessedSizeAdd()
-        {
-            return _cacheSize +
-                Stream.Position - StartPosition + 4;
-            // (long)Stream.GetProcessedSize();
         }
     }
 }

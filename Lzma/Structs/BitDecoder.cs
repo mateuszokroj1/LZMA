@@ -1,18 +1,20 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Text;
 
 namespace Lzma.Structs
 {
-    struct BitDecoder
+    internal struct BitDecoder
     {
-        public const int kNumBitModelTotalBits = 11;
-        public const uint kBitModelTotal = (1 << kNumBitModelTotalBits);
-        const int kNumMoveBits = 5;
+        #region Fields
 
+        public const int kNumBitModelTotalBits = 11;
+        public const uint kBitModelTotal = 1 << kNumBitModelTotalBits;
+        private const int kNumMoveBits = 5;
+        private const uint initProb = kBitModelTotal >> 1;
         uint Prob;
+
+        #endregion
+
+        #region Methods
 
         public void UpdateModel(int numMoveBits, uint symbol)
         {
@@ -22,20 +24,22 @@ namespace Lzma.Structs
                 Prob -= (Prob) >> numMoveBits;
         }
 
-        public void Init() { Prob = kBitModelTotal >> 1; }
+        public void Init() => Prob = initProb;
 
-        public uint Decode(RangeCoder.Decoder rangeDecoder)
+        public uint Decode(Decoder rangeDecoder)
         {
-            uint newBound = (uint)(rangeDecoder.Range >> kNumBitModelTotalBits) * (uint)Prob;
+            uint newBound = (uint)(rangeDecoder.Range >> kNumBitModelTotalBits) * Prob;
             if (rangeDecoder.Code < newBound)
             {
                 rangeDecoder.Range = newBound;
                 Prob += (kBitModelTotal - Prob) >> kNumMoveBits;
+
                 if (rangeDecoder.Range < Decoder.kTopValue)
                 {
                     rangeDecoder.Code = (rangeDecoder.Code << 8) | (byte)rangeDecoder.Stream.ReadByte();
                     rangeDecoder.Range <<= 8;
                 }
+
                 return 0;
             }
             else
@@ -43,13 +47,17 @@ namespace Lzma.Structs
                 rangeDecoder.Range -= newBound;
                 rangeDecoder.Code -= newBound;
                 Prob -= (Prob) >> kNumMoveBits;
+
                 if (rangeDecoder.Range < Decoder.kTopValue)
                 {
                     rangeDecoder.Code = (rangeDecoder.Code << 8) | (byte)rangeDecoder.Stream.ReadByte();
                     rangeDecoder.Range <<= 8;
                 }
+
                 return 1;
             }
         }
+
+        #endregion
     }
 }
