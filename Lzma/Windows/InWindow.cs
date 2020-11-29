@@ -1,13 +1,12 @@
-using System;
 using System.IO;
 
 namespace Lzma.Windows
 {
-	internal class InWindow
+    internal class InWindow
 	{
         #region Fields
 
-        private byte[] buffer;
+        protected byte[] buffer;
         private Stream stream;
         private uint positionLimit;
         private bool streamEndWasReached;
@@ -142,12 +141,12 @@ namespace Lzma.Windows
 			return i;
 		}
 
-		public void ReduceOffsets(uint subValue)
+		public void ReduceOffsets(int subValue)
 		{
-			BufferOffset += subValue;
-			this.positionLimit -= subValue;
-			Position -= subValue;
-			StreamPosition -= subValue;
+			BufferOffset = (uint)(BufferOffset + subValue);
+			this.positionLimit = (uint)(this.positionLimit - subValue);
+			Position = (uint)(Position - subValue);
+			StreamPosition = (uint)(StreamPosition - subValue);
 		}
 
         #endregion
