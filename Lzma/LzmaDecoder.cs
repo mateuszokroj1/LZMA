@@ -1,139 +1,19 @@
-// LzmaDecoder.cs
-
 using System;
 
-namespace SevenZip.Compression.LZMA
+using Lzma.Coders;
+using Lzma.Structs;
+using Lzma.Windows;
+
+namespace Lzma
 {
-	using RangeCoder;
-
-	public class Decoder : ICoder, ISetDecoderProperties // ,System.IO.Stream
+	public class Decoder
 	{
-		class LenDecoder
-		{
-			BitDecoder m_Choice = new BitDecoder();
-			BitDecoder m_Choice2 = new BitDecoder();
-			BitTreeDecoder[] m_LowCoder = new BitTreeDecoder[Base.kNumPosStatesMax];
-			BitTreeDecoder[] m_MidCoder = new BitTreeDecoder[Base.kNumPosStatesMax];
-			BitTreeDecoder m_HighCoder = new BitTreeDecoder(Base.kNumHighLenBits);
-			uint m_NumPosStates = 0;
+		
 
-			public void Create(uint numPosStates)
-			{
-				for (uint posState = m_NumPosStates; posState < numPosStates; posState++)
-				{
-					m_LowCoder[posState] = new BitTreeDecoder(Base.kNumLowLenBits);
-					m_MidCoder[posState] = new BitTreeDecoder(Base.kNumMidLenBits);
-				}
-				m_NumPosStates = numPosStates;
-			}
+		
 
-			public void Init()
-			{
-				m_Choice.Init();
-				for (uint posState = 0; posState < m_NumPosStates; posState++)
-				{
-					m_LowCoder[posState].Init();
-					m_MidCoder[posState].Init();
-				}
-				m_Choice2.Init();
-				m_HighCoder.Init();
-			}
-
-			public uint Decode(RangeCoder.Decoder rangeDecoder, uint posState)
-			{
-				if (m_Choice.Decode(rangeDecoder) == 0)
-					return m_LowCoder[posState].Decode(rangeDecoder);
-				else
-				{
-					uint symbol = Base.kNumLowLenSymbols;
-					if (m_Choice2.Decode(rangeDecoder) == 0)
-						symbol += m_MidCoder[posState].Decode(rangeDecoder);
-					else
-					{
-						symbol += Base.kNumMidLenSymbols;
-						symbol += m_HighCoder.Decode(rangeDecoder);
-					}
-					return symbol;
-				}
-			}
-		}
-
-		class LiteralDecoder
-		{
-			struct Decoder2
-			{
-				BitDecoder[] m_Decoders;
-				public void Create() { m_Decoders = new BitDecoder[0x300]; }
-				public void Init() { for (int i = 0; i < 0x300; i++) m_Decoders[i].Init(); }
-
-				public byte DecodeNormal(RangeCoder.Decoder rangeDecoder)
-				{
-					uint symbol = 1;
-					do
-						symbol = (symbol << 1) | m_Decoders[symbol].Decode(rangeDecoder);
-					while (symbol < 0x100);
-					return (byte)symbol;
-				}
-
-				public byte DecodeWithMatchByte(RangeCoder.Decoder rangeDecoder, byte matchByte)
-				{
-					uint symbol = 1;
-					do
-					{
-						uint matchBit = (uint)(matchByte >> 7) & 1;
-						matchByte <<= 1;
-						uint bit = m_Decoders[((1 + matchBit) << 8) + symbol].Decode(rangeDecoder);
-						symbol = (symbol << 1) | bit;
-						if (matchBit != bit)
-						{
-							while (symbol < 0x100)
-								symbol = (symbol << 1) | m_Decoders[symbol].Decode(rangeDecoder);
-							break;
-						}
-					}
-					while (symbol < 0x100);
-					return (byte)symbol;
-				}
-			}
-
-			Decoder2[] m_Coders;
-			int m_NumPrevBits;
-			int m_NumPosBits;
-			uint m_PosMask;
-
-			public void Create(int numPosBits, int numPrevBits)
-			{
-				if (m_Coders != null && m_NumPrevBits == numPrevBits &&
-					m_NumPosBits == numPosBits)
-					return;
-				m_NumPosBits = numPosBits;
-				m_PosMask = ((uint)1 << numPosBits) - 1;
-				m_NumPrevBits = numPrevBits;
-				uint numStates = (uint)1 << (m_NumPrevBits + m_NumPosBits);
-				m_Coders = new Decoder2[numStates];
-				for (uint i = 0; i < numStates; i++)
-					m_Coders[i].Create();
-			}
-
-			public void Init()
-			{
-				uint numStates = (uint)1 << (m_NumPrevBits + m_NumPosBits);
-				for (uint i = 0; i < numStates; i++)
-					m_Coders[i].Init();
-			}
-
-			uint GetState(uint pos, byte prevByte)
-			{ return ((pos & m_PosMask) << m_NumPrevBits) + (uint)(prevByte >> (8 - m_NumPrevBits)); }
-
-			public byte DecodeNormal(RangeCoder.Decoder rangeDecoder, uint pos, byte prevByte)
-			{ return m_Coders[GetState(pos, prevByte)].DecodeNormal(rangeDecoder); }
-
-			public byte DecodeWithMatchByte(RangeCoder.Decoder rangeDecoder, uint pos, byte prevByte, byte matchByte)
-			{ return m_Coders[GetState(pos, prevByte)].DecodeWithMatchByte(rangeDecoder, matchByte); }
-		};
-
-		LZ.OutWindow m_OutWindow = new LZ.OutWindow();
-		RangeCoder.Decoder m_RangeDecoder = new RangeCoder.Decoder();
+		OutWindow m_OutWindow = new OutWindow();
+		Coders.Decoder m_RangeDecoder = new Coders.Decoder();
 
 		BitDecoder[] m_IsMatchDecoders = new BitDecoder[Base.kNumStates << Base.kNumPosStatesBitsMax];
 		BitDecoder[] m_IsRepDecoders = new BitDecoder[Base.kNumStates];
@@ -147,8 +27,8 @@ namespace SevenZip.Compression.LZMA
 
 		BitTreeDecoder m_PosAlignDecoder = new BitTreeDecoder(Base.kNumAlignBits);
 
-		LenDecoder m_LenDecoder = new LenDecoder();
-		LenDecoder m_RepLenDecoder = new LenDecoder();
+		LengthDecoder m_LenDecoder = new LengthDecoder();
+		LengthDecoder m_RepLenDecoder = new LengthDecoder();
 
 		LiteralDecoder m_LiteralDecoder = new LiteralDecoder();
 
@@ -195,6 +75,7 @@ namespace SevenZip.Compression.LZMA
 		}
 
 		bool _solid = false;
+
 		void Init(System.IO.Stream inStream, System.IO.Stream outStream)
 		{
 			m_RangeDecoder.Init(inStream);
@@ -228,11 +109,11 @@ namespace SevenZip.Compression.LZMA
 		}
 
 		public void Code(System.IO.Stream inStream, System.IO.Stream outStream,
-			Int64 inSize, Int64 outSize, ICodeProgress progress)
+			Int64 inSize, Int64 outSize)
 		{
 			Init(inStream, outStream);
 
-			Base.State state = new Base.State();
+			var state = new State();
 			state.Init();
 			uint rep0 = 0, rep1 = 0, rep2 = 0, rep3 = 0;
 
@@ -341,9 +222,6 @@ namespace SevenZip.Compression.LZMA
 					}
 				}
 			}
-			m_OutWindow.Flush();
-			m_OutWindow.ReleaseStream();
-			m_RangeDecoder.ReleaseStream();
 		}
 
 		public void SetDecoderProperties(byte[] properties)
@@ -369,30 +247,5 @@ namespace SevenZip.Compression.LZMA
 			_solid = true;
 			return m_OutWindow.Train(stream);
 		}
-
-		/*
-		public override bool CanRead { get { return true; }}
-		public override bool CanWrite { get { return true; }}
-		public override bool CanSeek { get { return true; }}
-		public override long Length { get { return 0; }}
-		public override long Position
-		{
-			get { return 0;	}
-			set { }
-		}
-		public override void Flush() { }
-		public override int Read(byte[] buffer, int offset, int count) 
-		{
-			return 0;
-		}
-		public override void Write(byte[] buffer, int offset, int count)
-		{
-		}
-		public override long Seek(long offset, System.IO.SeekOrigin origin)
-		{
-			return 0;
-		}
-		public override void SetLength(long value) {}
-		*/
 	}
 }

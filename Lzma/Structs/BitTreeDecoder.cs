@@ -29,7 +29,7 @@ namespace Lzma.Structs
                 models[i].Init();
         }
 
-        public uint Decode(Decoder rangeDecoder)
+        public uint Decode(Coders.LzDecoder rangeDecoder)
         {
             uint m = 1;
 
@@ -39,7 +39,7 @@ namespace Lzma.Structs
             return m - ((uint)1 << numBitLevels);
         }
 
-        public uint ReverseDecode(Decoder rangeDecoder)
+        public uint ReverseDecode(Coders.LzDecoder rangeDecoder)
         {
             uint m = 1;
             uint symbol = 0;
@@ -56,7 +56,7 @@ namespace Lzma.Structs
         }
 
         public static uint ReverseDecode(BitDecoder[] models, uint startIndex,
-            Decoder rangeDecoder, int numBitLevels)
+            Coders.LzDecoder rangeDecoder, int numBitLevels)
         {
             uint m = 1;
             uint symbol = 0;
