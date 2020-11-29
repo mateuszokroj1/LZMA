@@ -1,5 +1,7 @@
 using System;
 
+using Lzma.Helpers;
+
 namespace Lzma.Windows
 {
 	internal class BinTree : InWindow
@@ -151,11 +153,11 @@ namespace Lzma.Windows
 
 			if (this.isHashArray)
 			{
-				uint temp = CRC.Table[this.buffer[cur]] ^ this.buffer[cur + 1];
+				uint temp = Crc.Table[this.buffer[cur]] ^ this.buffer[cur + 1];
 				hash2Value = temp & (kHash2Size - 1);
-				temp ^= this.buffer[cur + 2] << 8;
+				temp ^= (uint)(this.buffer[cur + 2] << 8);
 				hash3Value = temp & (kHash3Size - 1);
-				hashValue = (temp ^ (CRC.Table[this.buffer[cur + 3]] << 5)) & this.hashMask;
+				hashValue = (temp ^ (Crc.Table[this.buffer[cur + 3]] << 5)) & this.hashMask;
 			}
 			else
 				hashValue = this.buffer[cur] ^ ((uint)this.buffer[cur + 1] << 8);
@@ -296,13 +298,13 @@ namespace Lzma.Windows
 
 				if (this.isHashArray)
 				{
-					uint temp = CRC.Table[this.buffer[cur]] ^ this.buffer[cur + 1];
+					uint temp = Crc.Table[this.buffer[cur]] ^ this.buffer[cur + 1];
 					uint hash2Value = temp & (kHash2Size - 1);
                     this.hashes[hash2Value] = Position;
 					temp ^= (uint)(this.buffer[cur + 2]) << 8;
 					uint hash3Value = temp & (kHash3Size - 1);
                     this.hashes[kHash3Offset + hash3Value] = Position;
-					hashValue = (temp ^ (CRC.Table[this.buffer[cur + 3]] << 5)) & this.hashMask;
+					hashValue = (temp ^ (Crc.Table[this.buffer[cur + 3]] << 5)) & this.hashMask;
 				}
 				else
 					hashValue = this.buffer[cur] ^ ((uint)(this.buffer[cur + 1]) << 8);
@@ -387,7 +389,7 @@ namespace Lzma.Windows
 			uint subValue = Position - this.cyclicBufferSize;
 			NormalizeLinks(this.sons, this.cyclicBufferSize * 2, subValue);
 			NormalizeLinks(this.hashes, this.hashSizeSum, subValue);
-			ReduceOffsets(subValue);
+			ReduceOffsets((int)subValue);
 		}
 
         #endregion
