@@ -54,7 +54,7 @@ namespace Lzma.Structs
                 Prob -= (Prob) >> kNumMoveBits;
         }
 
-        public void Encode(Encoder encoder, uint symbol)
+        public void Encode(LzEncoder encoder, uint symbol)
         {
             uint newBound = (encoder.Range >> kNumBitModelTotalBits) * Prob;
 
@@ -70,7 +70,7 @@ namespace Lzma.Structs
                 Prob -= (Prob) >> kNumMoveBits;
             }
 
-            if (encoder.Range < Encoder.kTopValue)
+            if (encoder.Range < LzEncoder.kTopValue)
             {
                 encoder.Range <<= 8;
                 encoder.ShiftLow();

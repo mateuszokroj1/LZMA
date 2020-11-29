@@ -2,7 +2,7 @@
 
 namespace Lzma.Coders
 {
-    internal class Decoder
+    internal class LzDecoder
     {
         #region Fields
 

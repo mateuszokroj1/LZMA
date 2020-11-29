@@ -26,7 +26,7 @@ namespace Lzma.Structs
 
         public void Init() => Prob = initProb;
 
-        public uint Decode(Decoder rangeDecoder)
+        public uint Decode(Coders.LzDecoder rangeDecoder)
         {
             uint newBound = (rangeDecoder.Range >> kNumBitModelTotalBits) * Prob;
             if (rangeDecoder.Code < newBound)
@@ -34,7 +34,7 @@ namespace Lzma.Structs
                 rangeDecoder.Range = newBound;
                 Prob += (kBitModelTotal - Prob) >> kNumMoveBits;
 
-                if (rangeDecoder.Range < Decoder.kTopValue)
+                if (rangeDecoder.Range < Coders.LzDecoder.kTopValue)
                 {
                     rangeDecoder.Code = (rangeDecoder.Code << 8) | (byte)rangeDecoder.Stream.ReadByte();
                     rangeDecoder.Range <<= 8;
@@ -48,7 +48,7 @@ namespace Lzma.Structs
                 rangeDecoder.Code -= newBound;
                 Prob -= (Prob) >> kNumMoveBits;
 
-                if (rangeDecoder.Range < Decoder.kTopValue)
+                if (rangeDecoder.Range < Coders.LzDecoder.kTopValue)
                 {
                     rangeDecoder.Code = (rangeDecoder.Code << 8) | (byte)rangeDecoder.Stream.ReadByte();
                     rangeDecoder.Range <<= 8;
