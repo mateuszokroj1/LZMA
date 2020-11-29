@@ -1,4 +1,4 @@
-﻿using System.Text;
+﻿using Lzma.Coders;
 
 namespace Lzma.Structs
 {
@@ -28,7 +28,7 @@ namespace Lzma.Structs
 
         public uint Decode(Decoder rangeDecoder)
         {
-            uint newBound = (uint)(rangeDecoder.Range >> kNumBitModelTotalBits) * Prob;
+            uint newBound = (rangeDecoder.Range >> kNumBitModelTotalBits) * Prob;
             if (rangeDecoder.Code < newBound)
             {
                 rangeDecoder.Range = newBound;

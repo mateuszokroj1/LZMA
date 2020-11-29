@@ -89,6 +89,7 @@ namespace Lzma.Coders
         {
             uint newBound = (Range >> numTotalBits) * size0;
             uint symbol;
+
             if (Code < newBound)
             {
                 symbol = 0;
@@ -100,6 +101,7 @@ namespace Lzma.Coders
                 Code -= newBound;
                 Range -= newBound;
             }
+
             Normalize();
             return symbol;
         }

@@ -20,13 +20,13 @@ namespace Lzma.Windows
          
 		private bool isHashArray = true;
 
-		const uint kHash2Size = 1 << 10;
-		const uint kHash3Size = 1 << 16;
-		const uint kBT2HashSize = 1 << 16;
-		const uint kStartMaxLen = 1;
-		const uint kHash3Offset = kHash2Size;
-		const uint kEmptyHashValue = 0;
-		const uint kMaxValForNormalize = ((uint)1 << 31) - 1;
+		private const uint kHash2Size = 1 << 10;
+		private const uint kHash3Size = 1 << 16;
+		private const uint kBT2HashSize = 1 << 16;
+		private const uint kStartMaxLen = 1;
+		private const uint kHash3Offset = kHash2Size;
+		private const uint kEmptyHashValue = 0;
+		private const uint kMaxValForNormalize = ((uint)1 << 31) - 1;
 	
 		private uint kNumHashDirectBytes = 0;
 		private uint kMinMatchCheck = 4;
@@ -132,6 +132,7 @@ namespace Lzma.Windows
 		public uint GetMatches(uint[] distances)
 		{
 			uint lengthLimit;
+
 			if (Position + this.matchMaxLength <= StreamPosition)
 				lengthLimit = this.matchMaxLength;
 			else

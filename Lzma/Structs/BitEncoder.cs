@@ -1,4 +1,4 @@
-﻿using System.Text;
+﻿using Lzma.Coders;
 
 namespace Lzma.Structs
 {
@@ -27,8 +27,8 @@ namespace Lzma.Structs
 
         public const int kNumBitModelTotalBits = 11;
         public const uint kBitModelTotal = 1 << kNumBitModelTotalBits;
-        const int kNumMoveBits = 5;
-        const int kNumMoveReducingBits = 2;
+        private const int kNumMoveBits = 5;
+        private const int kNumMoveReducingBits = 2;
         public const int kNumBitPriceShiftBits = 6;
 
         private uint Prob;
