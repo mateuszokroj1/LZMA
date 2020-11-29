@@ -1,4 +1,4 @@
-﻿using System.Text;
+﻿using Lzma.Coders;
 
 namespace Lzma.Structs
 {
@@ -20,6 +20,8 @@ namespace Lzma.Structs
         private readonly int numBitLevels;
 
         #endregion
+
+        #region Methods
 
         public void Init()
         {
@@ -64,10 +66,12 @@ namespace Lzma.Structs
                 uint bit = models[startIndex + m].Decode(rangeDecoder);
                 m <<= 1;
                 m += bit;
-                symbol |= (bit << bitIndex);
+                symbol |= bit << bitIndex;
             }
 
             return symbol;
         }
+
+        #endregion
     }
 }

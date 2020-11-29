@@ -1,4 +1,4 @@
-﻿using System.Text;
+﻿using Lzma.Coders;
 
 namespace Lzma.Structs
 {

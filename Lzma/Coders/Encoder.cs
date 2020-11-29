@@ -8,8 +8,8 @@ namespace Lzma.Coders
 
         public const uint kTopValue = 1 << 24;
 
-        private uint _cacheSize;
-        private byte _cache;
+        private uint cacheSize;
+        private byte cache;
 
         #endregion
 
@@ -23,7 +23,7 @@ namespace Lzma.Coders
 
         public long StartPosition { get; set; }
 
-        public long ProcessedSize => _cacheSize + Stream.Position - StartPosition + 4;
+        public long ProcessedSize => this.cacheSize + Stream.Position - StartPosition + 4;
 
         #endregion
 
@@ -33,8 +33,8 @@ namespace Lzma.Coders
 
             Low = 0;
             Range = 0xFFFFFFFF;
-            _cacheSize = 1;
-            _cache = 0;
+            this.cacheSize = 1;
+            this.cache = 0;
         }
 
         public void FlushData()
@@ -59,19 +59,19 @@ namespace Lzma.Coders
         {
             if ((uint)Low < (uint)0xFF000000 || (uint)(Low >> 32) == 1)
             {
-                byte temp = _cache;
+                byte temp = this.cache;
 
                 do
                 {
                     Stream.WriteByte((byte)(temp + (Low >> 32)));
                     temp = 0xFF;
                 }
-                while (--_cacheSize != 0);
+                while (--this.cacheSize != 0);
 
-                _cache = (byte)(((uint)Low) >> 24);
+                this.cache = (byte)(((uint)Low) >> 24);
             }
 
-            _cacheSize++;
+            this.cacheSize++;
             Low = ((uint)Low) << 8;
         }
 
