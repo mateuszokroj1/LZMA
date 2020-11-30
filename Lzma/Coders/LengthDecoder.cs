@@ -4,51 +4,60 @@ namespace Lzma.Coders
 {
     internal class LengthDecoder
     {
-        BitDecoder m_Choice = new BitDecoder();
-        BitDecoder m_Choice2 = new BitDecoder();
-        BitTreeDecoder[] m_LowCoder = new BitTreeDecoder[Base.kNumPosStatesMax];
-        BitTreeDecoder[] m_MidCoder = new BitTreeDecoder[Base.kNumPosStatesMax];
-        BitTreeDecoder m_HighCoder = new BitTreeDecoder(Base.kNumHighLenBits);
-        uint m_NumPosStates = 0;
+        #region Fields
+
+        private BitDecoder choice = new BitDecoder();
+        private BitDecoder choice2 = new BitDecoder();
+        private BitTreeDecoder[] lowCoder = new BitTreeDecoder[Base.kNumPosStatesMax];
+        private BitTreeDecoder[] midCoder = new BitTreeDecoder[Base.kNumPosStatesMax];
+        private BitTreeDecoder highCoder = new BitTreeDecoder(Base.kNumHighLenBits);
+        private uint numPosStates = 0;
+
+        #endregion
+
+        #region Methods
 
         public void Create(uint numPosStates)
         {
-            for (uint posState = m_NumPosStates; posState < numPosStates; posState++)
+            for (uint posState = this.numPosStates; posState < numPosStates; posState++)
             {
-                m_LowCoder[posState] = new BitTreeDecoder(Base.kNumLowLenBits);
-                m_MidCoder[posState] = new BitTreeDecoder(Base.kNumMidLenBits);
+                this.lowCoder[posState] = new BitTreeDecoder(Base.kNumLowLenBits);
+                this.midCoder[posState] = new BitTreeDecoder(Base.kNumMidLenBits);
             }
-            m_NumPosStates = numPosStates;
+
+            this.numPosStates = numPosStates;
         }
 
         public void Init()
         {
-            m_Choice.Init();
-            for (uint posState = 0; posState < m_NumPosStates; posState++)
+            choice.Init();
+            for (uint posState = 0; posState < numPosStates; posState++)
             {
-                m_LowCoder[posState].Init();
-                m_MidCoder[posState].Init();
+                lowCoder[posState].Init();
+                midCoder[posState].Init();
             }
-            m_Choice2.Init();
-            m_HighCoder.Init();
+            choice2.Init();
+            highCoder.Init();
         }
 
-        public uint Decode(Decoder rangeDecoder, uint posState)
+        public uint Decode(RangeDecoder rangeDecoder, uint posState)
         {
-            if (m_Choice.Decode(rangeDecoder) == 0)
-                return m_LowCoder[posState].Decode(rangeDecoder);
+            if (choice.Decode(rangeDecoder) == 0)
+                return lowCoder[posState].Decode(rangeDecoder);
             else
             {
                 uint symbol = Base.kNumLowLenSymbols;
-                if (m_Choice2.Decode(rangeDecoder) == 0)
-                    symbol += m_MidCoder[posState].Decode(rangeDecoder);
+                if (choice2.Decode(rangeDecoder) == 0)
+                    symbol += midCoder[posState].Decode(rangeDecoder);
                 else
                 {
                     symbol += Base.kNumMidLenSymbols;
-                    symbol += m_HighCoder.Decode(rangeDecoder);
+                    symbol += highCoder.Decode(rangeDecoder);
                 }
                 return symbol;
             }
         }
+
+        #endregion
     }
 }
