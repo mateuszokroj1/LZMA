@@ -27,6 +27,8 @@ namespace Lzma.Coders
 
         #endregion
 
+        #region Methods
+
         public void Init()
         {
             StartPosition = Stream.Position;
@@ -39,7 +41,7 @@ namespace Lzma.Coders
 
         public void FlushData()
         {
-            for (int i = 0; i < 5; i++)
+            for (int i = 0; i < 5; ++i)
                 ShiftLow();
         }
 
@@ -57,7 +59,7 @@ namespace Lzma.Coders
 
         public void ShiftLow()
         {
-            if ((uint)Low < (uint)0xFF000000 || (uint)(Low >> 32) == 1)
+            if ((uint)Low < 0xFF000000 || (uint)(Low >> 32) == 1)
             {
                 byte temp = this.cache;
 
@@ -77,7 +79,7 @@ namespace Lzma.Coders
 
         public void EncodeDirectBits(uint v, int numTotalBits)
         {
-            for (int i = numTotalBits - 1; i >= 0; i--)
+            for (int i = numTotalBits - 1; i >= 0; --i)
             {
                 Range >>= 1;
 
@@ -110,5 +112,7 @@ namespace Lzma.Coders
                 ShiftLow();
             }
         }
+
+        #endregion
     }
 }

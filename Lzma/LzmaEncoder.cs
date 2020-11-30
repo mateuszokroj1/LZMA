@@ -1,24 +1,12 @@
-// LzmaEncoder.cs
-
 using System;
 
-namespace SevenZip.Compression.LZMA
+namespace Lzma
 {
-	using RangeCoder;
-
-	public class Encoder : ICoder, ISetCoderProperties, IWriteCoderProperties
+	public class Encoder : Base
 	{
-		enum EMatchFinderType
-		{
-			BT2,
-			BT4,
-		};
+        #region Constructor
 
-		const UInt32 kIfinityPrice = 0xFFFFFFF;
-
-		static Byte[] g_FastPos = new Byte[1 << 11];
-
-		static Encoder()
+        static Encoder()
 		{
 			const Byte kFastSlots = 22;
 			int c = 2;
@@ -32,7 +20,19 @@ namespace SevenZip.Compression.LZMA
 			}
 		}
 
-		static UInt32 GetPosSlot(UInt32 pos)
+        #endregion
+
+        Base.State _state = new Base.State();
+        Byte _previousByte;
+        UInt32[] _repDistances = new UInt32[Base.kNumRepDistances];
+        const UInt32 kIfinityPrice = 0xFFFFFFF;
+
+        static Byte[] g_FastPos = new Byte[1 << 11];
+
+        const int kDefaultDictionaryLogSize = 22;
+        const UInt32 kNumFastBytesDefault = 0x20;
+
+        static UInt32 GetPosSlot(UInt32 pos)
 		{
 			if (pos < (1 << 11))
 				return g_FastPos[pos];
@@ -50,9 +50,7 @@ namespace SevenZip.Compression.LZMA
 			return (UInt32)(g_FastPos[pos >> 26] + 52);
 		}
 
-		Base.State _state = new Base.State();
-		Byte _previousByte;
-		UInt32[] _repDistances = new UInt32[Base.kNumRepDistances];
+		
 
 		void BaseInit()
 		{
@@ -62,244 +60,14 @@ namespace SevenZip.Compression.LZMA
 				_repDistances[i] = 0;
 		}
 
-		const int kDefaultDictionaryLogSize = 22;
-		const UInt32 kNumFastBytesDefault = 0x20;
-
-		class LiteralEncoder
-		{
-			public struct Encoder2
-			{
-				BitEncoder[] m_Encoders;
-
-				public void Create() { m_Encoders = new BitEncoder[0x300]; }
-
-				public void Init() { for (int i = 0; i < 0x300; i++) m_Encoders[i].Init(); }
-
-				public void Encode(RangeCoder.Encoder rangeEncoder, byte symbol)
-				{
-					uint context = 1;
-					for (int i = 7; i >= 0; i--)
-					{
-						uint bit = (uint)((symbol >> i) & 1);
-						m_Encoders[context].Encode(rangeEncoder, bit);
-						context = (context << 1) | bit;
-					}
-				}
-
-				public void EncodeMatched(RangeCoder.Encoder rangeEncoder, byte matchByte, byte symbol)
-				{
-					uint context = 1;
-					bool same = true;
-					for (int i = 7; i >= 0; i--)
-					{
-						uint bit = (uint)((symbol >> i) & 1);
-						uint state = context;
-						if (same)
-						{
-							uint matchBit = (uint)((matchByte >> i) & 1);
-							state += ((1 + matchBit) << 8);
-							same = (matchBit == bit);
-						}
-						m_Encoders[state].Encode(rangeEncoder, bit);
-						context = (context << 1) | bit;
-					}
-				}
-
-				public uint GetPrice(bool matchMode, byte matchByte, byte symbol)
-				{
-					uint price = 0;
-					uint context = 1;
-					int i = 7;
-					if (matchMode)
-					{
-						for (; i >= 0; i--)
-						{
-							uint matchBit = (uint)(matchByte >> i) & 1;
-							uint bit = (uint)(symbol >> i) & 1;
-							price += m_Encoders[((1 + matchBit) << 8) + context].GetPrice(bit);
-							context = (context << 1) | bit;
-							if (matchBit != bit)
-							{
-								i--;
-								break;
-							}
-						}
-					}
-					for (; i >= 0; i--)
-					{
-						uint bit = (uint)(symbol >> i) & 1;
-						price += m_Encoders[context].GetPrice(bit);
-						context = (context << 1) | bit;
-					}
-					return price;
-				}
-			}
-
-			Encoder2[] m_Coders;
-			int m_NumPrevBits;
-			int m_NumPosBits;
-			uint m_PosMask;
-
-			public void Create(int numPosBits, int numPrevBits)
-			{
-				if (m_Coders != null && m_NumPrevBits == numPrevBits && m_NumPosBits == numPosBits)
-					return;
-				m_NumPosBits = numPosBits;
-				m_PosMask = ((uint)1 << numPosBits) - 1;
-				m_NumPrevBits = numPrevBits;
-				uint numStates = (uint)1 << (m_NumPrevBits + m_NumPosBits);
-				m_Coders = new Encoder2[numStates];
-				for (uint i = 0; i < numStates; i++)
-					m_Coders[i].Create();
-			}
-
-			public void Init()
-			{
-				uint numStates = (uint)1 << (m_NumPrevBits + m_NumPosBits);
-				for (uint i = 0; i < numStates; i++)
-					m_Coders[i].Init();
-			}
-
-			public Encoder2 GetSubCoder(UInt32 pos, Byte prevByte)
-			{ return m_Coders[((pos & m_PosMask) << m_NumPrevBits) + (uint)(prevByte >> (8 - m_NumPrevBits))]; }
-		}
-
-		class LenEncoder
-		{
-			RangeCoder.BitEncoder _choice = new RangeCoder.BitEncoder();
-			RangeCoder.BitEncoder _choice2 = new RangeCoder.BitEncoder();
-			RangeCoder.BitTreeEncoder[] _lowCoder = new RangeCoder.BitTreeEncoder[Base.kNumPosStatesEncodingMax];
-			RangeCoder.BitTreeEncoder[] _midCoder = new RangeCoder.BitTreeEncoder[Base.kNumPosStatesEncodingMax];
-			RangeCoder.BitTreeEncoder _highCoder = new RangeCoder.BitTreeEncoder(Base.kNumHighLenBits);
-
-			public LenEncoder()
-			{
-				for (UInt32 posState = 0; posState < Base.kNumPosStatesEncodingMax; posState++)
-				{
-					_lowCoder[posState] = new RangeCoder.BitTreeEncoder(Base.kNumLowLenBits);
-					_midCoder[posState] = new RangeCoder.BitTreeEncoder(Base.kNumMidLenBits);
-				}
-			}
-
-			public void Init(UInt32 numPosStates)
-			{
-				_choice.Init();
-				_choice2.Init();
-				for (UInt32 posState = 0; posState < numPosStates; posState++)
-				{
-					_lowCoder[posState].Init();
-					_midCoder[posState].Init();
-				}
-				_highCoder.Init();
-			}
-
-			public void Encode(RangeCoder.Encoder rangeEncoder, UInt32 symbol, UInt32 posState)
-			{
-				if (symbol < Base.kNumLowLenSymbols)
-				{
-					_choice.Encode(rangeEncoder, 0);
-					_lowCoder[posState].Encode(rangeEncoder, symbol);
-				}
-				else
-				{
-					symbol -= Base.kNumLowLenSymbols;
-					_choice.Encode(rangeEncoder, 1);
-					if (symbol < Base.kNumMidLenSymbols)
-					{
-						_choice2.Encode(rangeEncoder, 0);
-						_midCoder[posState].Encode(rangeEncoder, symbol);
-					}
-					else
-					{
-						_choice2.Encode(rangeEncoder, 1);
-						_highCoder.Encode(rangeEncoder, symbol - Base.kNumMidLenSymbols);
-					}
-				}
-			}
-
-			public void SetPrices(UInt32 posState, UInt32 numSymbols, UInt32[] prices, UInt32 st)
-			{
-				UInt32 a0 = _choice.GetPrice0();
-				UInt32 a1 = _choice.GetPrice1();
-				UInt32 b0 = a1 + _choice2.GetPrice0();
-				UInt32 b1 = a1 + _choice2.GetPrice1();
-				UInt32 i = 0;
-				for (i = 0; i < Base.kNumLowLenSymbols; i++)
-				{
-					if (i >= numSymbols)
-						return;
-					prices[st + i] = a0 + _lowCoder[posState].GetPrice(i);
-				}
-				for (; i < Base.kNumLowLenSymbols + Base.kNumMidLenSymbols; i++)
-				{
-					if (i >= numSymbols)
-						return;
-					prices[st + i] = b0 + _midCoder[posState].GetPrice(i - Base.kNumLowLenSymbols);
-				}
-				for (; i < numSymbols; i++)
-					prices[st + i] = b1 + _highCoder.GetPrice(i - Base.kNumLowLenSymbols - Base.kNumMidLenSymbols);
-			}
-		};
+		
 
 		const UInt32 kNumLenSpecSymbols = Base.kNumLowLenSymbols + Base.kNumMidLenSymbols;
 
-		class LenPriceTableEncoder : LenEncoder
-		{
-			UInt32[] _prices = new UInt32[Base.kNumLenSymbols << Base.kNumPosStatesBitsEncodingMax];
-			UInt32 _tableSize;
-			UInt32[] _counters = new UInt32[Base.kNumPosStatesEncodingMax];
-
-			public void SetTableSize(UInt32 tableSize) { _tableSize = tableSize; }
-
-			public UInt32 GetPrice(UInt32 symbol, UInt32 posState)
-			{
-				return _prices[posState * Base.kNumLenSymbols + symbol];
-			}
-
-			void UpdateTable(UInt32 posState)
-			{
-				SetPrices(posState, _tableSize, _prices, posState * Base.kNumLenSymbols);
-				_counters[posState] = _tableSize;
-			}
-
-			public void UpdateTables(UInt32 numPosStates)
-			{
-				for (UInt32 posState = 0; posState < numPosStates; posState++)
-					UpdateTable(posState);
-			}
-
-			public new void Encode(RangeCoder.Encoder rangeEncoder, UInt32 symbol, UInt32 posState)
-			{
-				base.Encode(rangeEncoder, symbol, posState);
-				if (--_counters[posState] == 0)
-					UpdateTable(posState);
-			}
-		}
+		
 
 		const UInt32 kNumOpts = 1 << 12;
-		class Optimal
-		{
-			public Base.State State;
-
-			public bool Prev1IsChar;
-			public bool Prev2;
-
-			public UInt32 PosPrev2;
-			public UInt32 BackPrev2;
-
-			public UInt32 Price;
-			public UInt32 PosPrev;
-			public UInt32 BackPrev;
-
-			public UInt32 Backs0;
-			public UInt32 Backs1;
-			public UInt32 Backs2;
-			public UInt32 Backs3;
-
-			public void MakeAsChar() { BackPrev = 0xFFFFFFFF; Prev1IsChar = false; }
-			public void MakeAsShortRep() { BackPrev = 0; ; Prev1IsChar = false; }
-			public bool IsShortRep() { return (BackPrev == 0); }
-		};
+		
 		Optimal[] _optimum = new Optimal[kNumOpts];
 		LZ.IMatchFinder _matchFinder = null;
 		RangeCoder.Encoder _rangeEncoder = new RangeCoder.Encoder();

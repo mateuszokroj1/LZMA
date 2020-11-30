@@ -7,42 +7,48 @@ namespace Lzma.Coders
     {
         #region Fields
 
-        Decoder2[] coders;
-        int numPrevBits;
-        int numPosBits;
-        uint positionMask;
+        private Decoder2[] coders;
+        private int numPreviousBits;
+        private int numPositionBits;
+        private uint positionMask;
 
         #endregion
 
-        public void Create(int numPosBits, int numPrevBits)
+        #region Methods
+
+        public void Create(int numPositionBits, int numPreviousBits)
         {
-            if (this.coders != null && this.numPrevBits == numPrevBits &&
-                this.numPosBits == numPosBits)
+            if (this.coders != null && this.numPreviousBits == numPreviousBits &&
+                this.numPositionBits == numPositionBits)
                 return;
 
-            this.numPosBits = numPosBits;
-            positionMask = ((uint)1 << numPosBits) - 1;
-            this.numPrevBits = numPrevBits;
-            uint numStates = (uint)1 << (this.numPrevBits + this.numPosBits);
-            coders = new Decoder2[numStates];
-            for (uint i = 0; i < numStates; i++)
-                coders[i].Create();
+            this.numPositionBits = numPositionBits;
+            this.positionMask = ((uint)1 << this.numPositionBits) - 1;
+            this.numPreviousBits = numPreviousBits;
+            uint numStates = (uint)1 << (this.numPreviousBits + this.numPositionBits);
+            this.coders = new Decoder2[numStates];
+
+            for (uint i = 0; i < numStates; ++i)
+                this.coders[i].Create();
         }
 
         public void Init()
         {
-            uint numStates = (uint)1 << (numPrevBits + numPosBits);
-            for (uint i = 0; i < numStates; i++)
-                coders[i].Init();
+            uint numStates = (uint)1 << (this.numPreviousBits + this.numPositionBits);
+
+            for (uint i = 0; i < numStates; ++i)
+                this.coders[i].Init();
         }
 
-        uint GetState(uint pos, byte prevByte)
-        { return ((pos & positionMask) << numPrevBits) + (uint)(prevByte >> (8 - numPrevBits)); }
+        private uint GetState(uint position, byte previousByte) =>
+            ((position & this.positionMask) << this.numPreviousBits) + (uint)(previousByte >> (8 - this.numPreviousBits));
 
-        public byte DecodeNormal(RangeCoder.Decoder rangeDecoder, uint pos, byte prevByte)
-        { return coders[GetState(pos, prevByte)].DecodeNormal(rangeDecoder); }
+        public byte DecodeNormal(RangeDecoder rangeDecoder, uint position, byte previousByte) =>
+            this.coders[GetState(position, previousByte)].DecodeNormal(rangeDecoder);
 
-        public byte DecodeWithMatchByte(RangeCoder.Decoder rangeDecoder, uint pos, byte prevByte, byte matchByte)
-        { return coders[GetState(pos, prevByte)].DecodeWithMatchByte(rangeDecoder, matchByte); }
+        public byte DecodeWithMatchByte(RangeDecoder rangeDecoder, uint position, byte previousByte, byte matchByte) =>
+            this.coders[GetState(position, previousByte)].DecodeWithMatchByte(rangeDecoder, matchByte);
+
+        #endregion
     };
 }

@@ -53,7 +53,7 @@ namespace Lzma.Coders
 
         public uint GetThreshold(uint total) => Code / (Range /= total);
 
-        public void Decode(uint start, uint size, uint total)
+        public void Decode(uint start, uint size)
         {
             Code -= start * Range;
             Range *= size;
@@ -65,6 +65,7 @@ namespace Lzma.Coders
             uint range = Range;
             uint code = Code;
             uint result = 0;
+
             for (int i = numTotalBits; i > 0; i--)
             {
                 range >>= 1;
