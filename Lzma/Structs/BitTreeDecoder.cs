@@ -9,7 +9,7 @@ namespace Lzma.Structs
         public BitTreeDecoder(int numBitLevels)
         {
             this.numBitLevels = numBitLevels;
-            models = new BitDecoder[1 << numBitLevels];
+            this.models = new BitDecoder[1 << numBitLevels];
         }
 
         #endregion
@@ -25,28 +25,28 @@ namespace Lzma.Structs
 
         public void Init()
         {
-            for (uint i = 1; i < 1 << numBitLevels; i++)
-                models[i].Init();
+            for (uint i = 1; i < 1 << this.numBitLevels; i++)
+                this.models[i].Init();
         }
 
-        public uint Decode(Coders.LzDecoder rangeDecoder)
+        public uint Decode(RangeDecoder rangeDecoder)
         {
             uint m = 1;
 
-            for (int bitIndex = numBitLevels; bitIndex > 0; bitIndex--)
-                m = (m << 1) + models[m].Decode(rangeDecoder);
+            for (int bitIndex = this.numBitLevels; bitIndex > 0; bitIndex--)
+                m = (m << 1) + this.models[m].Decode(rangeDecoder);
 
-            return m - ((uint)1 << numBitLevels);
+            return m - ((uint)1 << this.numBitLevels);
         }
 
-        public uint ReverseDecode(Coders.LzDecoder rangeDecoder)
+        public uint ReverseDecode(RangeDecoder rangeDecoder)
         {
             uint m = 1;
             uint symbol = 0;
 
-            for (int bitIndex = 0; bitIndex < numBitLevels; bitIndex++)
+            for (int bitIndex = 0; bitIndex < this.numBitLevels; bitIndex++)
             {
-                uint bit = models[m].Decode(rangeDecoder);
+                uint bit = this.models[m].Decode(rangeDecoder);
                 m <<= 1;
                 m += bit;
                 symbol |= bit << bitIndex;
@@ -56,7 +56,7 @@ namespace Lzma.Structs
         }
 
         public static uint ReverseDecode(BitDecoder[] models, uint startIndex,
-            Coders.LzDecoder rangeDecoder, int numBitLevels)
+            RangeDecoder rangeDecoder, int numBitLevels)
         {
             uint m = 1;
             uint symbol = 0;

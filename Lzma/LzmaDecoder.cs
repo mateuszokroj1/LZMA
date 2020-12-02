@@ -16,7 +16,7 @@ namespace Lzma
 
         public Decoder()
         {
-            this.dictionarySize = 0xFFFFFFFF;
+            this.dictionarySize = initDictionarySize;
             for (int i = 0; i < kNumLenToPosStates; i++)
                 this.positionSlotDecoder[i] = new BitTreeDecoder(kNumPosSlotBits);
         }
@@ -24,6 +24,8 @@ namespace Lzma
         #endregion
 
         #region Fields
+
+        private const uint initDictionarySize = 0xFFFFFFFF;
 
         private readonly OutWindow outWindow = new OutWindow();
         private readonly RangeDecoder rangeDecoder = new RangeDecoder();
@@ -232,7 +234,7 @@ namespace Lzma
 					}
 					if (rep0 >= this.outWindow.TrainSize + nowPos64 || rep0 >= this.dictionarySizeCheck)
 					{
-						if (rep0 == 0xFFFFFFFF)
+						if (rep0 == initDictionarySize)
 							break;
 
 						throw new InvalidDataException();
