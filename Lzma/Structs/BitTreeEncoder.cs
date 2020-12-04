@@ -29,7 +29,11 @@ namespace Lzma.Structs
                 models[i].Init();
         }
 
+<<<<<<< HEAD
         public void Encode(RangeEncoder rangeEncoder, uint symbol)
+=======
+        public void Encode(Encoder rangeEncoder, uint symbol)
+>>>>>>> 268951ff6b669f74e4c52cfe9fd98370eac7b51d
         {
             uint m = 1;
 
@@ -42,7 +46,11 @@ namespace Lzma.Structs
             }
         }
 
+<<<<<<< HEAD
         public void ReverseEncode(RangeEncoder rangeEncoder, uint symbol)
+=======
+        public void ReverseEncode(Encoder rangeEncoder, uint symbol)
+>>>>>>> 268951ff6b669f74e4c52cfe9fd98370eac7b51d
         {
             uint m = 1;
 
@@ -105,7 +113,11 @@ namespace Lzma.Structs
         }
 
         public static void ReverseEncode(BitEncoder[] models, uint startIndex,
+<<<<<<< HEAD
             RangeEncoder rangeEncoder, int numBitLevels, uint symbol)
+=======
+            Encoder rangeEncoder, int numBitLevels, uint symbol)
+>>>>>>> 268951ff6b669f74e4c52cfe9fd98370eac7b51d
         {
             uint m = 1;
 
