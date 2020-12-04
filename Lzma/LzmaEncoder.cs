@@ -1,5 +1,7 @@
 using System;
 
+using Lzma.Structs;
+
 namespace Lzma
 {
 	public class Encoder : Base
@@ -11,85 +13,58 @@ namespace Lzma
 			const byte kFastSlots = 22;
 
 			int c = 2;
-			g_FastPos[0] = 0;
-			g_FastPos[1] = 1;
+			fastPosition[0] = 0;
+			fastPosition[1] = 1;
 
 			for (byte slotFast = 2; slotFast < kFastSlots; slotFast++)
 			{
                 uint k = ((uint)1 << ((slotFast >> 1) - 1));
 				for (uint j = 0; j < k; j++, c++)
-					g_FastPos[c] = slotFast;
+					fastPosition[c] = slotFast;
 			}
 		}
 
         #endregion
 
-        Base.State _state = new Base.State();
-        byte _previousByte;
-        uint[] _repDistances = new uint[Base.kNumRepDistances];
+        State state = new State();
+        byte previousByte;
+        uint[] repDistances = new uint[Base.kNumRepDistances];
         const uint kIfinityPrice = 0xFFFFFFF;
 
-        static byte[] g_FastPos = new byte[1 << 11];
+        static byte[] fastPosition = new byte[1 << 11];
 
         const int kDefaultDictionaryLogSize = 22;
         const uint kNumFastBytesDefault = 0x20;
 
-        static uint GetPosSlot(uint pos)
-		{
-			if (pos < (1 << 11))
-				return g_FastPos[pos];
-			if (pos < (1 << 21))
-				return (uint)(g_FastPos[pos >> 10] + 20);
-			return (uint)(g_FastPos[pos >> 20] + 40);
-		}
+        const uint kNumLenSpecSymbols = Base.kNumLowLenSymbols + Base.kNumMidLenSymbols;
 
-		static uint GetPosSlot2(uint pos)
-		{
-			if (pos < (1 << 17))
-				return (uint)(g_FastPos[pos >> 6] + 12);
-			if (pos < (1 << 27))
-				return (uint)(g_FastPos[pos >> 16] + 32);
-			return (uint)(g_FastPos[pos >> 26] + 52);
-		}
+        const int kPropSize = 5;
+        byte[] properties = new byte[kPropSize];
 
-		
+        const uint kNumOpts = 1 << 12;
 
-		void BaseInit()
-		{
-			_state.Init();
-			_previousByte = 0;
-			for (uint i = 0; i < Base.kNumRepDistances; i++)
-				_repDistances[i] = 0;
-		}
+        uint _trainSize = 0;
 
-		
+        Optimal[] _optimum = new Optimal[kNumOpts];
+        LZ.IMatchFinder _matchFinder = null;
+        RangeCoder.Encoder _rangeEncoder = new RangeCoder.Encoder();
 
-		const uint kNumLenSpecSymbols = Base.kNumLowLenSymbols + Base.kNumMidLenSymbols;
+        RangeCoder.BitEncoder[] _isMatch = new RangeCoder.BitEncoder[Base.kNumStates << Base.kNumPosStatesBitsMax];
+        RangeCoder.BitEncoder[] _isRep = new RangeCoder.BitEncoder[Base.kNumStates];
+        RangeCoder.BitEncoder[] _isRepG0 = new RangeCoder.BitEncoder[Base.kNumStates];
+        RangeCoder.BitEncoder[] _isRepG1 = new RangeCoder.BitEncoder[Base.kNumStates];
+        RangeCoder.BitEncoder[] _isRepG2 = new RangeCoder.BitEncoder[Base.kNumStates];
+        RangeCoder.BitEncoder[] _isRep0Long = new RangeCoder.BitEncoder[Base.kNumStates << Base.kNumPosStatesBitsMax];
 
-		
+        RangeCoder.BitTreeEncoder[] _posSlotEncoder = new RangeCoder.BitTreeEncoder[Base.kNumLenToPosStates];
 
-		const uint kNumOpts = 1 << 12;
-		
-		Optimal[] _optimum = new Optimal[kNumOpts];
-		LZ.IMatchFinder _matchFinder = null;
-		RangeCoder.Encoder _rangeEncoder = new RangeCoder.Encoder();
+        RangeCoder.BitEncoder[] _posEncoders = new RangeCoder.BitEncoder[Base.kNumFullDistances - Base.kEndPosModelIndex];
+        RangeCoder.BitTreeEncoder _posAlignEncoder = new RangeCoder.BitTreeEncoder(Base.kNumAlignBits);
 
-		RangeCoder.BitEncoder[] _isMatch = new RangeCoder.BitEncoder[Base.kNumStates << Base.kNumPosStatesBitsMax];
-		RangeCoder.BitEncoder[] _isRep = new RangeCoder.BitEncoder[Base.kNumStates];
-		RangeCoder.BitEncoder[] _isRepG0 = new RangeCoder.BitEncoder[Base.kNumStates];
-		RangeCoder.BitEncoder[] _isRepG1 = new RangeCoder.BitEncoder[Base.kNumStates];
-		RangeCoder.BitEncoder[] _isRepG2 = new RangeCoder.BitEncoder[Base.kNumStates];
-		RangeCoder.BitEncoder[] _isRep0Long = new RangeCoder.BitEncoder[Base.kNumStates << Base.kNumPosStatesBitsMax];
+        LenPriceTableEncoder _lenEncoder = new LenPriceTableEncoder();
+        LenPriceTableEncoder _repMatchLenEncoder = new LenPriceTableEncoder();
 
-		RangeCoder.BitTreeEncoder[] _posSlotEncoder = new RangeCoder.BitTreeEncoder[Base.kNumLenToPosStates];
-		
-		RangeCoder.BitEncoder[] _posEncoders = new RangeCoder.BitEncoder[Base.kNumFullDistances - Base.kEndPosModelIndex];
-		RangeCoder.BitTreeEncoder _posAlignEncoder = new RangeCoder.BitTreeEncoder(Base.kNumAlignBits);
-
-		LenPriceTableEncoder _lenEncoder = new LenPriceTableEncoder();
-		LenPriceTableEncoder _repMatchLenEncoder = new LenPriceTableEncoder();
-
-		LiteralEncoder _literalEncoder = new LiteralEncoder();
+        LiteralEncoder _literalEncoder = new LiteralEncoder();
 
         uint[] _matchDistances = new uint[Base.kMatchMaxLen * 2 + 2];
 
@@ -102,7 +77,7 @@ namespace Lzma
         uint _optimumEndIndex;
         uint _optimumCurrentIndex;
 
-		bool _longestMatchWasFound;
+        bool _longestMatchWasFound;
 
         uint[] _posSlotPrices = new uint[1 << (Base.kNumPosSlotBits + Base.kNumLenToPosStatesBits)];
         uint[] _distancesPrices = new uint[Base.kNumFullDistances << Base.kNumLenToPosStatesBits];
@@ -111,23 +86,62 @@ namespace Lzma
 
         uint _distTableSize = (kDefaultDictionaryLogSize * 2);
 
-		int _posStateBits = 2;
+        int _posStateBits = 2;
         uint _posStateMask = (4 - 1);
-		int _numLiteralPosStateBits = 0;
-		int _numLiteralContextBits = 3;
+        int _numLiteralPosStateBits = 0;
+        int _numLiteralContextBits = 3;
 
         uint _dictionarySize = (1 << kDefaultDictionaryLogSize);
         uint _dictionarySizePrev = 0xFFFFFFFF;
         uint _numFastBytesPrev = 0xFFFFFFFF;
 
         long nowPos64;
-		bool _finished;
-		System.IO.Stream _inStream;
+        bool _finished;
+        System.IO.Stream _inStream;
 
-		EMatchFinderType _matchFinderType = EMatchFinderType.BT4;
-		bool _writeEndMark = false;
+        EMatchFinderType _matchFinderType = EMatchFinderType.BT4;
+        bool _writeEndMark = false;
+
+        bool _needReleaseMFStream;
+        uint _trainSize = 0;
+        uint[] reps = new uint[Base.kNumRepDistances];
+        uint[] repLens = new uint[Base.kNumRepDistances];
+
+        #region Properties
+
+        #endregion
+
+        #region Methods
+
+        static uint GetPosSlot(uint pos)
+		{
+			if (pos < (1 << 11))
+				return fastPosition[pos];
+			if (pos < (1 << 21))
+				return (uint)(fastPosition[pos >> 10] + 20);
+			return (uint)(fastPosition[pos >> 20] + 40);
+		}
+
+		static uint GetPosSlot2(uint pos)
+		{
+			if (pos < (1 << 17))
+				return (uint)(fastPosition[pos >> 6] + 12);
+			if (pos < (1 << 27))
+				return (uint)(fastPosition[pos >> 16] + 32);
+			return (uint)(fastPosition[pos >> 26] + 52);
+		}
+
+		void BaseInit()
+		{
+			state.Init();
+			previousByte = 0;
+			for (uint i = 0; i < Base.kNumRepDistances; i++)
+				repDistances[i] = 0;
+		}
+
 		
-		bool _needReleaseMFStream;
+
+		
 
 		void Create()
 		{
@@ -302,8 +316,7 @@ namespace Lzma
 			return _optimumCurrentIndex;
 		}
 
-        uint[] reps = new uint[Base.kNumRepDistances];
-        uint[] repLens = new uint[Base.kNumRepDistances];
+        
 
 
         uint GetOptimum(uint position, out uint backRes)
@@ -342,7 +355,7 @@ namespace Lzma
             uint i;			
 			for (i = 0; i < Base.kNumRepDistances; i++)
 			{
-				reps[i] = _repDistances[i];
+				reps[i] = repDistances[i];
 				repLens[i] = _matchFinder.GetMatchLen(0 - 1, reps[i], Base.kMatchMaxLen);
 				if (repLens[i] > repLens[repMaxIndex])
 					repMaxIndex = i;
@@ -363,7 +376,7 @@ namespace Lzma
 			}
 
             byte currentByte = _matchFinder.GetIndexByte(0 - 1);
-            byte matchByte = _matchFinder.GetIndexByte((int)(0 - _repDistances[0] - 1 - 1));
+            byte matchByte = _matchFinder.GetIndexByte((int)(0 - repDistances[0] - 1 - 1));
 
 			if (lenMain < 2 && currentByte != matchByte && repLens[repMaxIndex] < 2)
 			{
@@ -371,20 +384,20 @@ namespace Lzma
 				return 1;
 			}
 
-			_optimum[0].State = _state;
+			_optimum[0].State = state;
 
             uint posState = (position & _posStateMask);
 
-			_optimum[1].Price = _isMatch[(_state.Index << Base.kNumPosStatesBitsMax) + posState].GetPrice0() +
-					_literalEncoder.GetSubCoder(position, _previousByte).GetPrice(!_state.IsCharState(), matchByte, currentByte);
+			_optimum[1].Price = _isMatch[(state.Index << Base.kNumPosStatesBitsMax) + posState].GetPrice0() +
+					_literalEncoder.GetSubCoder(position, previousByte).GetPrice(!state.IsCharState(), matchByte, currentByte);
 			_optimum[1].MakeAsChar();
 
-            uint matchPrice = _isMatch[(_state.Index << Base.kNumPosStatesBitsMax) + posState].GetPrice1();
-            uint repMatchPrice = matchPrice + _isRep[_state.Index].GetPrice1();
+            uint matchPrice = _isMatch[(state.Index << Base.kNumPosStatesBitsMax) + posState].GetPrice1();
+            uint repMatchPrice = matchPrice + _isRep[state.Index].GetPrice1();
 
 			if (matchByte == currentByte)
 			{
-                uint shortRepPrice = repMatchPrice + GetRepLen1Price(_state, posState);
+                uint shortRepPrice = repMatchPrice + GetRepLen1Price(state, posState);
 				if (shortRepPrice < _optimum[1].Price)
 				{
 					_optimum[1].Price = shortRepPrice;
@@ -417,7 +430,7 @@ namespace Lzma
                 uint repLen = repLens[i];
 				if (repLen < 2)
 					continue;
-                uint price = repMatchPrice + GetPureRepPrice(i, _state, posState);
+                uint price = repMatchPrice + GetPureRepPrice(i, state, posState);
 				do
 				{
                     uint curAndLenPrice = price + _repMatchLenEncoder.GetPrice(repLen - 2, posState);
@@ -433,7 +446,7 @@ namespace Lzma
 				while (--repLen >= 2);
 			}
 
-            uint normalMatchPrice = matchPrice + _isRep[_state.Index].GetPrice0();
+            uint normalMatchPrice = matchPrice + _isRep[state.Index].GetPrice0();
 			
 			len = ((repLens[0] >= 2) ? repLens[0] + 1 : 2);
 			if (len <= lenMain)
@@ -808,9 +821,9 @@ namespace Lzma
 			if (!_writeEndMark)
 				return;
 
-			_isMatch[(_state.Index << Base.kNumPosStatesBitsMax) + posState].Encode(_rangeEncoder, 1);
-			_isRep[_state.Index].Encode(_rangeEncoder, 0);
-			_state.UpdateMatch();
+			_isMatch[(state.Index << Base.kNumPosStatesBitsMax) + posState].Encode(_rangeEncoder, 1);
+			_isRep[state.Index].Encode(_rangeEncoder, 0);
+			state.UpdateMatch();
             uint len = Base.kMatchMinLen;
 			_lenEncoder.Encode(_rangeEncoder, len - Base.kMatchMinLen, posState);
             uint posSlot = (1 << Base.kNumPosSlotBits) - 1;
@@ -862,11 +875,11 @@ namespace Lzma
                 uint len, numDistancePairs; // it's not used
 				ReadMatchDistances(out len, out numDistancePairs);
                 uint posState = (uint)(nowPos64) & _posStateMask;
-				_isMatch[(_state.Index << Base.kNumPosStatesBitsMax) + posState].Encode(_rangeEncoder, 0);
-				_state.UpdateChar();
+				_isMatch[(state.Index << Base.kNumPosStatesBitsMax) + posState].Encode(_rangeEncoder, 0);
+				state.UpdateChar();
                 byte curByte = _matchFinder.GetIndexByte((int)(0 - _additionalOffset));
-				_literalEncoder.GetSubCoder((uint)(nowPos64), _previousByte).Encode(_rangeEncoder, curByte);
-				_previousByte = curByte;
+				_literalEncoder.GetSubCoder((uint)(nowPos64), previousByte).Encode(_rangeEncoder, curByte);
+				previousByte = curByte;
 				_additionalOffset--;
 				nowPos64++;
 			}
@@ -881,31 +894,31 @@ namespace Lzma
                 uint len = GetOptimum((uint)nowPos64, out pos);
 
                 uint posState = ((uint)nowPos64) & _posStateMask;
-                uint complexState = (_state.Index << Base.kNumPosStatesBitsMax) + posState;
+                uint complexState = (state.Index << Base.kNumPosStatesBitsMax) + posState;
 				if (len == 1 && pos == 0xFFFFFFFF)
 				{
 					_isMatch[complexState].Encode(_rangeEncoder, 0);
                     byte curByte = _matchFinder.GetIndexByte((int)(0 - _additionalOffset));
-					LiteralEncoder.Encoder2 subCoder = _literalEncoder.GetSubCoder((uint)nowPos64, _previousByte);
-					if (!_state.IsCharState())
+					LiteralEncoder.Encoder2 subCoder = _literalEncoder.GetSubCoder((uint)nowPos64, previousByte);
+					if (!state.IsCharState())
 					{
-                        byte matchByte = _matchFinder.GetIndexByte((int)(0 - _repDistances[0] - 1 - _additionalOffset));
+                        byte matchByte = _matchFinder.GetIndexByte((int)(0 - repDistances[0] - 1 - _additionalOffset));
 						subCoder.EncodeMatched(_rangeEncoder, matchByte, curByte);
 					}
 					else
 						subCoder.Encode(_rangeEncoder, curByte);
-					_previousByte = curByte;
-					_state.UpdateChar();
+					previousByte = curByte;
+					state.UpdateChar();
 				}
 				else
 				{
 					_isMatch[complexState].Encode(_rangeEncoder, 1);
 					if (pos < Base.kNumRepDistances)
 					{
-						_isRep[_state.Index].Encode(_rangeEncoder, 1);
+						_isRep[state.Index].Encode(_rangeEncoder, 1);
 						if (pos == 0)
 						{
-							_isRepG0[_state.Index].Encode(_rangeEncoder, 0);
+							_isRepG0[state.Index].Encode(_rangeEncoder, 0);
 							if (len == 1)
 								_isRep0Long[complexState].Encode(_rangeEncoder, 0);
 							else
@@ -913,34 +926,34 @@ namespace Lzma
 						}
 						else
 						{
-							_isRepG0[_state.Index].Encode(_rangeEncoder, 1);
+							_isRepG0[state.Index].Encode(_rangeEncoder, 1);
 							if (pos == 1)
-								_isRepG1[_state.Index].Encode(_rangeEncoder, 0);
+								_isRepG1[state.Index].Encode(_rangeEncoder, 0);
 							else
 							{
-								_isRepG1[_state.Index].Encode(_rangeEncoder, 1);
-								_isRepG2[_state.Index].Encode(_rangeEncoder, pos - 2);
+								_isRepG1[state.Index].Encode(_rangeEncoder, 1);
+								_isRepG2[state.Index].Encode(_rangeEncoder, pos - 2);
 							}
 						}
 						if (len == 1)
-							_state.UpdateShortRep();
+							state.UpdateShortRep();
 						else
 						{
 							_repMatchLenEncoder.Encode(_rangeEncoder, len - Base.kMatchMinLen, posState);
-							_state.UpdateRep();
+							state.UpdateRep();
 						}
-                        uint distance = _repDistances[pos];
+                        uint distance = repDistances[pos];
 						if (pos != 0)
 						{
 							for (uint i = pos; i >= 1; i--)
-								_repDistances[i] = _repDistances[i - 1];
-							_repDistances[0] = distance;
+								repDistances[i] = repDistances[i - 1];
+							repDistances[0] = distance;
 						}
 					}
 					else
 					{
-						_isRep[_state.Index].Encode(_rangeEncoder, 0);
-						_state.UpdateMatch();
+						_isRep[state.Index].Encode(_rangeEncoder, 0);
+						state.UpdateMatch();
 						_lenEncoder.Encode(_rangeEncoder, len - Base.kMatchMinLen, posState);
 						pos -= Base.kNumRepDistances;
                         uint posSlot = GetPosSlot(pos);
@@ -965,11 +978,11 @@ namespace Lzma
 						}
                         uint distance = pos;
 						for (uint i = Base.kNumRepDistances - 1; i >= 1; i--)
-							_repDistances[i] = _repDistances[i - 1];
-						_repDistances[0] = distance;
+							repDistances[i] = repDistances[i - 1];
+						repDistances[0] = distance;
 						_matchPriceCount++;
 					}
-					_previousByte = _matchFinder.GetIndexByte((int)(len - 1 - _additionalOffset));
+					previousByte = _matchFinder.GetIndexByte((int)(len - 1 - _additionalOffset));
 				}
 				_additionalOffset -= len;
 				nowPos64 += len;
@@ -1067,8 +1080,7 @@ namespace Lzma
 			}
 		}
 
-		const int kPropSize = 5;
-        byte[] properties = new byte[kPropSize];
+		
 
 		public void WriteCoderProperties(System.IO.Stream outStream)
 		{
@@ -1240,11 +1252,12 @@ namespace Lzma
 			}
 		}
 
-		uint _trainSize = 0;
+		
 		public void SetTrainSize(uint trainSize)
 		{
 			_trainSize = trainSize;
 		}
-		
-	}
+
+        #endregion
+    }
 }
