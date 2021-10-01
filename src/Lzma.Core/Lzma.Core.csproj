@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFrameworks>netcoreapp3.1;net5</TargetFrameworks>
+    <Authors>Mateusz Okrój</Authors>
+    <Product>LZMA</Product>
+		<LangVersion>latest</LangVersion>
+		<Nullable>enable</Nullable>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/mateuszokroj1/LZMA.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>lzma 7z 7zip compression algorithm</PackageTags>
+  </PropertyGroup>
+
+</Project>
