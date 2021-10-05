@@ -5,12 +5,13 @@
 
 trigger: none
 
-pr:
-  drafts: false
-  branches:
-    include:
-      - master
-  autoCancel: true
+schedules:
+  - cron: "1 0 * * *"
+    always: false
+    branches:
+      include:
+        - master
+    batch: true
 
 variables:
 
