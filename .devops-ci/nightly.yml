@@ -13,6 +13,14 @@ schedules:
         - feature/*
         - fix/*
 
+pr:
+ branches:
+   exclude:
+     - master
+     - feature/*
+     - fix/*
+     - release/*
+
 variables:
 
   - name: SourcesDirectory
