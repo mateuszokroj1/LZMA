@@ -5,20 +5,10 @@
 
 trigger: none
 
-schedules:
-  - cron: "1 0 * * *"
-    displayName: 'Daily nightly build'
-    branches:
-      include:
-        - feature/*
-        - fix/*
-
 pr:
  branches:
-   exclude:
+   include:
      - master
-     - feature/*
-     - fix/*
      - release/*
 
 variables:
@@ -30,7 +20,7 @@ variables:
     readonly: true
 
   - name: PackIsOptional
-    value: true
+    value: false
     readonly: true
 
 pool:
@@ -51,6 +41,6 @@ steps:
     inputs:
       command: 'test'
       projects: '$(TestsDirectory)'
-      configuration: Debug
+      configuration: $(Configuration)
 
   - template: templates/steps/pack-dev.yml

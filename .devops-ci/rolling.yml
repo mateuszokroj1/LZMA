@@ -19,55 +19,13 @@ pr:
 
 variables:
 
-  - name: SourcesDirectory
-    value: '$(Build.SourcesDirectory)/src'
-    readonly: true
-
-  - name: TestsDirectory
-    value: '$(SourcesDirectory)/Tests'
-    readonly: true
-
-  - name: SourcesProjects
-    value: '$(SourcesDirectory)/**/*.csproj'
-    readonly: true
-
-  - name: TestsProjects
-    value: '$(SourcesDirectory)/Tests/**/*.csproj'
-    readonly: true
+  - template: templates/variables.yml
 
 pool:
   vmImage: ubuntu-latest
 
 steps:
 
-  - task: UseDotNet@2
-    displayName: Install .NET Core 3.1
-    timeoutInMinutes: 5
-    inputs:
-      packageType: 'sdk'
-      version: '3.1.x'
+  - template: templates/steps/sdk-install.yml
 
-  - task: UseDotNet@2
-    displayName: Install .NET 5
-    timeoutInMinutes: 5
-    inputs:
-      packageType: 'sdk'
-      version: '5.0.x'
-
-  - task: DotNetCoreCLI@2
-    displayName: Restore all projects
-    timeoutInMinutes: 10
-    inputs:
-      command: 'restore'
-      projects: $(SourcesProjects)
-      feedsToUse: 'config'
-      nugetConfigPath: '$(SourcesDirectory)/nuget.config'
-      configuration: Debug
-
-  - task: DotNetCoreCLI@2
-    displayName: Build all projects
-    timeoutInMinutes: 15
-    inputs:
-      command: 'build'
-      projects: $(SourcesProjects)
-      configuration: Debug
+  - template: templates/steps/restore&build.yml

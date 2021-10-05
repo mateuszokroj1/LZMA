@@ -1,0 +1,29 @@
+variables:
+
+  - name: SourcesDirectory
+    value: '$(Build.SourcesDirectory)/src'
+    readonly: true
+
+  - name: TestsDirectory
+    value: '$(SourcesDirectory)/Tests'
+    readonly: true
+
+  - name: SourcesProjects
+    value: '$(SourcesDirectory)/**/*.csproj'
+    readonly: true
+
+  - name: TestsProjects
+    value: '$(SourcesDirectory)/Tests/**/*.csproj'
+    readonly: true
+
+  - name: Core.Version.Major
+    value: 0
+    readonly: true
+
+  - name: Core.Version.Minor
+    value: 1
+    readonly: true
+
+  - name: Core.Version.Patch
+    value: 0
+    readonly: true

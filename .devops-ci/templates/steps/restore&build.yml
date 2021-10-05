@@ -1,0 +1,19 @@
+steps:
+
+  - task: DotNetCoreCLI@2
+    displayName: Restore all projects
+    timeoutInMinutes: 10
+    inputs:
+      command: 'restore'
+      projects: $(SourcesProjects)
+      feedsToUse: 'config'
+      nugetConfigPath: '$(SourcesDirectory)/nuget.config'
+      configuration: $(Configuration)
+
+  - task: DotNetCoreCLI@2
+    displayName: Build all projects
+    timeoutInMinutes: 15
+    inputs:
+      command: 'build'
+      projects: $(SourcesProjects)
+      configuration: $(Configuration)
