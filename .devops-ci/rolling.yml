@@ -9,6 +9,24 @@ trigger:
   - fix/*
   - release/*
 
+variables:
+
+  - name: SourcesDirectory
+    value: '$(Build.SourcesDirectory)/src'
+    readonly: true
+
+  - name: TestsDirectory
+    value: '$(SourcesDirectory)/Tests'
+    readonly: true
+
+  - name: SourcesProjects
+    value: '$(SourcesDirectory)/**/*.csproj'
+    readonly: true
+
+  - name: TestsProjects
+    value: '$(SourcesDirectory)/Tests/**/*.csproj'
+    readonly: true
+
 pool:
   vmImage: ubuntu-latest
 
@@ -33,9 +51,9 @@ steps:
     timeoutInMinutes: 10
     inputs:
       command: 'restore'
-      projects: '$(Build.SourceDirectory)/src/**/*.csproj'
+      projects: $(SourcesProjects)
       feedsToUse: 'config'
-      nugetConfigPath: '$(Build.SourceDirectory)/src/nuget.org'
+      nugetConfigPath: '$(SourcesDirectory)/nuget.config'
       configuration: Debug
 
   - task: DotNetCoreCLI@2
@@ -43,5 +61,5 @@ steps:
     timeoutInMinutes: 15
     inputs:
       command: 'build'
-      projects: '$(Build.SourceDirectory)/src/**/*.csproj'
+      projects: $(SourcesProjects)
       configuration: Debug
