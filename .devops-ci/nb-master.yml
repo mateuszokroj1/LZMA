@@ -5,6 +5,13 @@
 
 trigger: none
 
+pr:
+  drafts: false
+  branches:
+    include:
+      - master
+  autoCancel: true
+
 variables:
 
   - template: templates/variables.yml
@@ -37,7 +44,19 @@ steps:
       projects: '$(TestsDirectory)'
       configuration: $(Configuration)
 
-
+  - task: PublishTestResults@2
+    displayName: Fail, if failed tests
+    inputs:
+      testResultsFormat: 'XUnit'
+      testResultsFiles: '**/*.trx'
+      failTaskOnFailedTests: true
 
   - template: templates/steps/pack-dev.yml
 
+  - task: DotNetCoreCLI@2
+    displayName: Push to Nuget.org
+    inputs:
+      command: 'push'
+      packagesToPush: '$(Build.ArtifactStagingDirectory)/*.nupkg'
+      nuGetFeedType: 'external'
+      publishFeedCredentials: 'Nuget.org mateuszokroj1'
