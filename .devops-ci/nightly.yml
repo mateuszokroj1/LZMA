@@ -1,0 +1,93 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger: none
+
+schedules:
+  - cron: "1 0 * * *"
+    displayName: 'Daily nightly build'
+    branches:
+      include:
+        - feature/*
+        - fix/*
+
+variables:
+
+  - name: SourcesDirectory
+    value: '$(Build.SourcesDirectory)/src'
+    readonly: true
+
+  - name: TestsDirectory
+    value: '$(SourcesDirectory)/Tests'
+    readonly: true
+
+  - name: SourcesProjects
+    value: '$(SourcesDirectory)/**/*.csproj'
+    readonly: true
+
+  - name: TestsProjects
+    value: '$(SourcesDirectory)/Tests/**/*.csproj'
+    readonly: true
+
+pool:
+  vmImage: ubuntu-latest
+
+workspace:
+  clean: all
+
+steps:
+
+  - task: UseDotNet@2
+    displayName: Install .NET Core 3.1
+    timeoutInMinutes: 5
+    inputs:
+      packageType: 'sdk'
+      version: '3.1.x'
+
+  - task: UseDotNet@2
+    displayName: Install .NET 5
+    timeoutInMinutes: 5
+    inputs:
+      packageType: 'sdk'
+      version: '5.0.x'
+
+  - task: DotNetCoreCLI@2
+    displayName: Restore all projects
+    timeoutInMinutes: 10
+    inputs:
+      command: 'restore'
+      projects: $(SourcesProjects)
+      feedsToUse: 'config'
+      nugetConfigPath: '$(SourcesDirectory)/nuget.config'
+      configuration: Debug
+
+  - task: DotNetCoreCLI@2
+    displayName: Build all projects
+    timeoutInMinutes: 15
+    inputs:
+      command: 'build'
+      projects: $(SourcesProjects)
+      configuration: Debug
+
+  - task: DotNetCoreCLI@2
+    displayName: Test all projects
+    timeoutInMinutes: 20
+    inputs:
+      command: 'test'
+      projects: '$(TestsDirectory)'
+      configuration: Debug
+
+  - task: DotNetCoreCLI@2
+    displayName: Pack Lzma.Core
+    timeoutInMinutes: 15
+    continueOnError: true
+    inputs:
+      command: 'pack'
+      packagesToPack: '$(SourcesDirectory)/Lzma.Core/Lzma.Core.csproj'
+      configuration: 'Debug'
+      versioningScheme: 'byPrereleaseNumber'
+      majorVersion: '1'
+      minorVersion: '0'
+      patchVersion: '0'
