@@ -9,6 +9,14 @@ trigger:
   - fix/*
   - release/*
 
+pr:
+ branches:
+   exclude:
+     - master
+     - feature/*
+     - fix/*
+     - release/*
+
 variables:
 
   - name: SourcesDirectory
