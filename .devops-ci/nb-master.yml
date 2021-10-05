@@ -1,0 +1,43 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger: none
+
+variables:
+
+  - template: templates/variables.yml
+
+  - name: Configuration
+    value: Debug
+    readonly: true
+
+  - name: PackIsOptional
+    value: falses
+    readonly: true
+
+pool:
+  vmImage: ubuntu-latest
+
+workspace:
+  clean: all
+
+steps:
+
+  - template: templates/steps/sdk-install.yml
+
+  - template: templates/steps/restore&build.yml
+
+  - task: DotNetCoreCLI@2
+    displayName: Test all projects
+    timeoutInMinutes: 20
+    inputs:
+      command: 'test'
+      projects: '$(TestsDirectory)'
+      configuration: $(Configuration)
+
+
+
+  - template: templates/steps/pack-dev.yml
+
