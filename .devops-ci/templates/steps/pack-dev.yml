@@ -1,14 +1,28 @@
 steps:
 
-  - task: DotNetCoreCLI@2
-    displayName: Pack Lzma.Core
-    timeoutInMinutes: 15
-    continueOnError: $(PackIsOptional)
-    inputs:
-      command: 'pack'
-      packagesToPack: '$(SourcesDirectory)/Lzma.Core/Lzma.Core.csproj'
-      configuration: $(Configuration)
-      versioningScheme: 'byPrereleaseNumber'
-      majorVersion: $(Core.Version.Major)
-      minorVersion: $(Core.Version.Minor)
-      patchVersion: $(Core.Version.Patch)
+  - ${{ if eq(variables.PackIsOptional, true) }}:
+    - task: DotNetCoreCLI@2
+      displayName: Pack Lzma.Core
+      timeoutInMinutes: 15
+      continueOnError: true
+      inputs:
+        command: 'pack'
+        packagesToPack: '$(SourcesDirectory)/Lzma.Core/Lzma.Core.csproj'
+        configuration: $(Configuration)
+        versioningScheme: 'byPrereleaseNumber'
+        majorVersion: $(Core.Version.Major)
+        minorVersion: $(Core.Version.Minor)
+        patchVersion: $(Core.Version.Patch)
+
+    - ${{ if ne(variables.PackIsOptional, true) }}:
+      - task: DotNetCoreCLI@2
+        displayName: Pack Lzma.Core
+        timeoutInMinutes: 15
+        inputs:
+          command: 'pack'
+          packagesToPack: '$(SourcesDirectory)/Lzma.Core/Lzma.Core.csproj'
+          configuration: $(Configuration)
+          versioningScheme: 'byPrereleaseNumber'
+          majorVersion: $(Core.Version.Major)
+          minorVersion: $(Core.Version.Minor)
+          patchVersion: $(Core.Version.Patch)
